@@ -1036,114 +1036,122 @@ async function cloudFetchAll() {
   return all;
 }
 
-async function cloudSave(item) {
-  // 映射字段名：JS camelCase → DB snake_case
+// ========== 云端同步（重写版 - 简洁可靠）==========
+
+// ========== 云端同步（重写版 - 简洁可靠）==========
+// 策略：本地为主，云端为镜像
+// - 增删改：立即写本地，防抖后上传云端
+// - 删除：本地删除 + 立即从云端删除
+// - 同步拉取：只在手动触发时从云端全量拉取替换本地
+// - 启动时：云端优先，本地没有的从云端补
+
+async function cloudUpsert(item) {
   const record = {
-    id: item.id,
-    type: item.type,
-    title: item.title,
-    content: item.content || '',
-    category: item.category || '',
-    done: item.done || false,
-    due_date: item.dueDate || '',
-    created_at: item.createdAt,
-    updated_at: item.updatedAt,
-    user_id: 'default'
+    id: item.id, type: item.type, title: item.title,
+    content: item.content || '', category: item.category || '',
+    done: item.done || false, due_date: item.dueDate || '',
+    created_at: item.createdAt, updated_at: item.updatedAt, user_id: 'default'
   };
   return await cloudApi(`notes?id=eq.${encodeURIComponent(item.id)}`, 'PATCH', record);
 }
 
-async function cloudInsert(item) {
+async function cloudInsertOne(item) {
   const record = {
-    id: item.id,
-    type: item.type,
-    title: item.title,
-    content: item.content || '',
-    category: item.category || '',
-    done: item.done || false,
-    due_date: item.dueDate || '',
-    created_at: item.createdAt,
-    updated_at: item.updatedAt,
-    user_id: 'default'
+    id: item.id, type: item.type, title: item.title,
+    content: item.content || '', category: item.category || '',
+    done: item.done || false, due_date: item.dueDate || '',
+    created_at: item.createdAt, updated_at: item.updatedAt, user_id: 'default'
   };
   return await cloudApi('notes', 'POST', [record]);
 }
 
-async function cloudDelete(id) {
-  return await cloudApi(`notes?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+// 上传单个 item 到云端（PATCH 如果存在则更新，失败则 POST）
+async function uploadItem(item) {
+  const result = await cloudUpsert(item);
+  if (!result || result.length === 0) {
+    await cloudInsertOne(item);
+  }
 }
 
-async function syncFromCloud() {
+// 全量上传本地数据到云端
+async function uploadAllToCloud() {
+  if (!cloudEnabled) return;
+  for (const item of state.items) {
+    await uploadItem(item);
+  }
+  // 删除云端多余数据
+  const cloudItems = await cloudFetchAll();
+  if (cloudItems) {
+    const localIds = new Set(state.items.map(i => i.id));
+    for (const ci of cloudItems) {
+      if (!localIds.has(ci.id)) {
+        await cloudApi(`notes?id=eq.${encodeURIComponent(ci.id)}`, 'DELETE');
+      }
+    }
+  }
+}
+
+// 从云端拉取全量数据，替换本地
+async function pullFromCloud() {
   if (!cloudEnabled || cloudSyncing) return;
   cloudSyncing = true;
   try {
     const cloudItems = await cloudFetchAll();
-    if (!cloudItems) { cloudSyncing = false; return; }
+    if (!cloudItems || cloudItems.length === 0) { cloudSyncing = false; return; }
     
-    // 合并策略：以 updated_at 为准，云端新则覆盖本地
-    const localMap = new Map(state.items.map(i => [i.id, i]));
-    let changed = false;
-    
-    cloudItems.forEach(ci => {
-      // 跳过已删除的墓碑记录
-      if (deletedTombstones.has(ci.id)) return;
-      
-      const local = localMap.get(ci.id);
-      const cloudUpdated = ci.updated_at || 0;
-      if (!local) {
-        // 云端有、本地没有 → 添加
+    // 直接替换
+    state.items = cloudItems.map(ci => ({
+      id: ci.id, type: ci.type, title: ci.title,
+      content: ci.content, category: ci.category, done: ci.done,
+      dueDate: ci.due_date, createdAt: ci.created_at, updatedAt: ci.updated_at
+    }));
+    saveLocal();
+    refreshUI();
+    lastSyncTime = Date.now();
+    showToast('✅ 同步完成（共 ' + state.items.length + ' 条）');
+  } catch(e) {
+    console.warn('拉取云端失败:', e);
+  }
+  cloudSyncing = false;
+}
+
+// 启动时：云端补充本地没有的数据（仅补充，不删除本地数据）
+async function startupSync() {
+  if (!cloudEnabled) return;
+  try {
+    const cloudItems = await cloudFetchAll();
+    if (!cloudItems || cloudItems.length === 0) return;
+    const localIds = new Set(state.items.map(i => i.id));
+    let added = 0;
+    for (const ci of cloudItems) {
+      if (!localIds.has(ci.id)) {
         state.items.push({
-          id: ci.id,
-          type: ci.type,
-          title: ci.title,
-          content: ci.content,
-          category: ci.category,
-          done: ci.done,
-          dueDate: ci.due_date,
-          createdAt: ci.created_at,
-          updatedAt: ci.updated_at
+          id: ci.id, type: ci.type, title: ci.title,
+          content: ci.content, category: ci.category, done: ci.done,
+          dueDate: ci.due_date, createdAt: ci.created_at, updatedAt: ci.updated_at
         });
-        changed = true;
-      } else if (cloudUpdated > (local.updatedAt || 0)) {
-        // 云端更新 → 覆盖本地
-        local.type = ci.type;
-        local.title = ci.title;
-        local.content = ci.content;
-        local.category = ci.category;
-        local.done = ci.done;
-        local.dueDate = ci.due_date;
-        local.createdAt = ci.created_at;
-        local.updatedAt = ci.updated_at;
-        changed = true;
-      }
-    });
-    
-    // 本地有、云端没有 → 上传到云端
-    const cloudIds = new Set(cloudItems.map(ci => ci.id));
-    for (const item of state.items) {
-      if (!cloudIds.has(item.id)) {
-        await cloudInsert(item);
+        added++;
       }
     }
-    
-    if (changed) {
+    if (added > 0) {
       saveLocal();
       refreshUI();
     }
     lastSyncTime = Date.now();
   } catch(e) {
-    console.warn('云端同步失败:', e);
+    console.warn('启动同步失败:', e);
   }
-  cloudSyncing = false;
 }
 
-// 从本地缓存快速加载（同步），然后异步同步云端
+// 删除云端指定 id
+async function deleteFromCloud(id) {
+  await cloudApi(`notes?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+}
+
+// ========== 本地存储 ==========
 function loadData() {
   loadLocal();
 }
-
-// 已删除记录的墓碑集合（防止云端重新拉回）
-let deletedTombstones = new Set();
 
 function loadLocal() {
   try {
@@ -1152,75 +1160,29 @@ function loadLocal() {
       const data = JSON.parse(raw);
       state.items = data.items || [];
     }
-    // 加载删除墓碑
-    const tombs = localStorage.getItem(STORAGE_KEY + '_tombs');
-    if (tombs) {
-      deletedTombstones = new Set(JSON.parse(tombs));
-    }
   } catch(e) {
     console.error('加载本地数据失败', e);
   }
 }
 
-function saveData() {
-  saveLocal();
-  // 异步同步到云端（不阻塞 UI）
-  const item = state.items[state.items.length - 1]; // 最近操作的那条
-  if (cloudEnabled) {
-    syncLastChange();
-  }
-}
-
-let syncTimer = null;
-let pendingSync = new Set();
-
-function syncLastChange() {
-  // 防抖：200ms 内多次操作合并为一次同步
-  if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => doCloudSync(), 300);
-}
-
-async function doCloudSync() {
-  if (!cloudEnabled || cloudSyncing) return;
-  cloudSyncing = true;
-  try {
-    // 全量对比并同步
-    const cloudItems = await cloudFetchAll();
-    if (!cloudItems) { cloudSyncing = false; return; }
-    const cloudMap = new Map(cloudItems.map(ci => [ci.id, ci]));
-    
-    for (const item of state.items) {
-      const ci = cloudMap.get(item.id);
-      if (!ci || item.updatedAt > (ci.updated_at || 0)) {
-        if (ci) {
-          await cloudSave(item);
-        } else {
-          await cloudInsert(item);
-        }
-      }
-    }
-    
-    // 删除云端多余数据（包括墓碑中的记录）
-    const localIds = new Set(state.items.map(i => i.id));
-    for (const ci of cloudItems) {
-      if (!localIds.has(ci.id) || deletedTombstones.has(ci.id)) {
-        await cloudDelete(ci.id);
-      }
-    }
-    lastSyncTime = Date.now();
-  } catch(e) {
-    console.warn('云端同步出错:', e);
-  }
-  cloudSyncing = false;
-}
-
 function saveLocal() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ items: state.items }));
-    localStorage.setItem(STORAGE_KEY + '_tombs', JSON.stringify([...deletedTombstones]));
   } catch(e) {
     showToast('本地存储空间不足：' + e.message);
   }
+}
+
+function saveData() {
+  saveLocal();
+  // 异步同步到云端（防抖）
+  if (cloudEnabled) scheduleCloudUpload();
+}
+
+let uploadTimer = null;
+function scheduleCloudUpload() {
+  if (uploadTimer) clearTimeout(uploadTimer);
+  uploadTimer = setTimeout(() => uploadAllToCloud(), 1000);
 }
 
 function refreshUI() {
@@ -1502,22 +1464,12 @@ function saveItem() {
   }
 }
 
-async function deleteItem(id) {
+function deleteItem(id) {
   if (!confirm('确定删除吗？')) return;
-  const item = state.items.find(i => i.id === id);
   state.items = state.items.filter(i => i.id !== id);
-  // 记录墓碑，防止云端同步拉回
-  deletedTombstones.add(id);
-  // 清理过大的墓碑集合（保留最近 500 条）
-  if (deletedTombstones.size > 500) {
-    const arr = [...deletedTombstones];
-    deletedTombstones = new Set(arr.slice(arr.length - 500));
-  }
   saveData();
-  // 异步删除云端数据
-  if (cloudEnabled) {
-    cloudDelete(id).catch(() => {});
-  }
+  // 立即从云端删除
+  if (cloudEnabled) deleteFromCloud(id);
   renderFilterBar(state.currentTab);
   renderList(state.currentTab);
   showToast('已删除');
@@ -1619,8 +1571,7 @@ function updateSyncStatus() {
 async function manualSync() {
   showToast('☁️ 正在同步...');
   document.getElementById('sync-status').textContent = '🔄 同步中...';
-  await syncFromCloud();
-  await doCloudSync();
+  await pullFromCloud();
   updateStats();
   updateSyncStatus();
   showToast('✅ 同步完成');
@@ -1698,7 +1649,7 @@ function clearAllData() {
   // 先删除云端数据
   if (cloudEnabled) {
     for (const item of state.items) {
-      cloudDelete(item.id);
+      deleteFromCloud(item.id);
     }
   }
   state.items = [];
@@ -1723,13 +1674,6 @@ function showToast(msg) {
 function init() {
   loadData();
   
-  // 启动时：将墓碑中的记录从云端彻底删除
-  if (deletedTombstones.size > 0 && cloudEnabled) {
-    for (const id of deletedTombstones) {
-      cloudDelete(id).catch(() => {});
-    }
-  }
-  
   // 如果是空数据，添加一些示例帮助用户上手
   if (state.items.length === 0) {
     const now = Date.now();
@@ -1744,28 +1688,19 @@ function init() {
       { id: genId(), type: 'shenlun', title: '绿色发展对策', content: '1.完善法规标准 2.强化监管执法 3.推动产业升级 4.倡导绿色生活方式 5.加强区域协同治理', category: '对策', createdAt: now-14400000, updatedAt: now }
     ];
     saveLocal();
-    // 同步示例数据到云端
-    setTimeout(() => doCloudSync(), 1000);
   }
   renderFilterBar('todo');
   renderList('todo');
   
-  // 启动后异步从云端同步（不阻塞 UI）
-  setTimeout(() => {
-    showToast('☁️ 正在同步云端数据...');
-    syncFromCloud().then(() => {
-      showToast('✅ 同步完成');
-    }).catch(() => {
-      showToast('⚠️ 云端连接失败，使用本地数据');
-    });
-  }, 500);
-  
-  // 定时后台同步（每 30 秒）
-  setInterval(() => {
-    if (cloudEnabled && !cloudSyncing) {
-      syncFromCloud();
+  // 启动后：云端补充数据 + 上传本地数据
+  setTimeout(async () => {
+    if (cloudEnabled) {
+      // 先上传本地到云端
+      await uploadAllToCloud();
+      // 再从云端拉取补充
+      await startupSync();
     }
-  }, 30000);
+  }, 1000);
 }
 
 // 点击遮罩关闭弹窗
