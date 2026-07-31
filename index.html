@@ -1085,6 +1085,9 @@ async function syncFromCloud() {
     let changed = false;
     
     cloudItems.forEach(ci => {
+      // 跳过已删除的墓碑记录
+      if (deletedTombstones.has(ci.id)) return;
+      
       const local = localMap.get(ci.id);
       const cloudUpdated = ci.updated_at || 0;
       if (!local) {
@@ -1139,12 +1142,20 @@ function loadData() {
   loadLocal();
 }
 
+// 已删除记录的墓碑集合（防止云端重新拉回）
+let deletedTombstones = new Set();
+
 function loadLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const data = JSON.parse(raw);
       state.items = data.items || [];
+    }
+    // 加载删除墓碑
+    const tombs = localStorage.getItem(STORAGE_KEY + '_tombs');
+    if (tombs) {
+      deletedTombstones = new Set(JSON.parse(tombs));
     }
   } catch(e) {
     console.error('加载本地数据失败', e);
@@ -1189,10 +1200,10 @@ async function doCloudSync() {
       }
     }
     
-    // 删除云端多余数据
+    // 删除云端多余数据（包括墓碑中的记录）
     const localIds = new Set(state.items.map(i => i.id));
     for (const ci of cloudItems) {
-      if (!localIds.has(ci.id)) {
+      if (!localIds.has(ci.id) || deletedTombstones.has(ci.id)) {
         await cloudDelete(ci.id);
       }
     }
@@ -1206,6 +1217,7 @@ async function doCloudSync() {
 function saveLocal() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ items: state.items }));
+    localStorage.setItem(STORAGE_KEY + '_tombs', JSON.stringify([...deletedTombstones]));
   } catch(e) {
     showToast('本地存储空间不足：' + e.message);
   }
@@ -1490,10 +1502,22 @@ function saveItem() {
   }
 }
 
-function deleteItem(id) {
+async function deleteItem(id) {
   if (!confirm('确定删除吗？')) return;
+  const item = state.items.find(i => i.id === id);
   state.items = state.items.filter(i => i.id !== id);
+  // 记录墓碑，防止云端同步拉回
+  deletedTombstones.add(id);
+  // 清理过大的墓碑集合（保留最近 500 条）
+  if (deletedTombstones.size > 500) {
+    const arr = [...deletedTombstones];
+    deletedTombstones = new Set(arr.slice(arr.length - 500));
+  }
   saveData();
+  // 异步删除云端数据
+  if (cloudEnabled) {
+    cloudDelete(id).catch(() => {});
+  }
   renderFilterBar(state.currentTab);
   renderList(state.currentTab);
   showToast('已删除');
