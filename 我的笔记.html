@@ -1722,6 +1722,14 @@ function showToast(msg) {
 // ========== 初始化 ==========
 function init() {
   loadData();
+  
+  // 启动时：将墓碑中的记录从云端彻底删除
+  if (deletedTombstones.size > 0 && cloudEnabled) {
+    for (const id of deletedTombstones) {
+      cloudDelete(id).catch(() => {});
+    }
+  }
+  
   // 如果是空数据，添加一些示例帮助用户上手
   if (state.items.length === 0) {
     const now = Date.now();
@@ -1780,7 +1788,7 @@ init();
 if ('serviceWorker' in navigator) {
   // 内联 Service Worker
   const swCode = `
-const CACHE_NAME = 'my-notes-v3';
+const CACHE_NAME = 'my-notes-v5';
 const urlsToCache = ['/'];
 
 self.addEventListener('install', e => {
