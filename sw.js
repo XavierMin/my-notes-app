@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-notes-v5';
+const CACHE_NAME = 'my-notes-v6';
 const urlsToCache = ['/'];
 
 self.addEventListener('install', e => {

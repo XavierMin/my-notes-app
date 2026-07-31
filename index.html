@@ -1707,7 +1707,7 @@ init();
 if ('serviceWorker' in navigator) {
   // 内联 Service Worker
   const swCode = `
-const CACHE_NAME = 'my-notes-v5';
+const CACHE_NAME = 'my-notes-v6';
 const urlsToCache = ['/'];
 
 self.addEventListener('install', e => {
@@ -1762,10 +1762,11 @@ self.addEventListener('message', e => {
   
   // 尝试用 Blob URL 注册（GitHub Pages 上直接用同源路径更稳）
   if (window.location.hostname.includes('github')) {
-    // 在 GitHub Pages 环境下用内联方式注册
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // 如果 sw.js 不存在，降级：用 Blob URL
-      console.log('SW registered via inline fallback');
+    // 强制注销所有旧 Service Worker，确保加载最新版本
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(reg => reg.unregister());
+    }).then(() => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
     });
   }
   
