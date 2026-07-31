@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="我的笔记">
+<meta name="theme-color" content="#7C5CFC">
+<title>我的笔记</title>
+<style>
+:root {
+  --c-todo: #FF6B9D;
+  --c-todo-bg: #FFF0F5;
+  --c-knowledge: #5B8DEF;
+  --c-knowledge-bg: #EBF3FF;
+  --c-words: #FFB84D;
+  --c-words-bg: #FFF6E5;
+  --c-shenlun: #7C5CFC;
+  --c-shenlun-bg: #F0EBFF;
+  --c-text: #2D2D2D;
+  --c-text-light: #888;
+  --c-bg: #FAFAFC;
+  --c-card: #FFFFFF;
+  --c-border: #EEE;
+  --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-hover: 0 4px 20px rgba(0,0,0,0.12);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  font-size: 15px;
+  color: var(--c-text);
+  background: var(--c-bg);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  max-width: 600px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* 顶部导航 */
+.topbar {
+  background: linear-gradient(135deg, #7C5CFC 0%, #9B7BFF 100%);
+  color: white;
+  padding: calc(var(--safe-top) + 14px) 16px 14px;
+  box-shadow: 0 2px 12px rgba(124, 92, 252, 0.25);
+  position: relative;
+  z-index: 10;
+}
+
+.topbar h1 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar h1 .logo {
+  font-size: 24px;
+}
+
+.topbar .subtitle {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+.topbar-actions {
+  position: absolute;
+  right: 16px;
+  top: calc(var(--safe-top) + 14px);
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  background: rgba(255,255,255,0.22);
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.icon-btn:active {
+  background: rgba(255,255,255,0.35);
+}
+
+/* Tab 切换 */
+.tabs {
+  display: flex;
+  background: var(--c-card);
+  padding: 8px 8px;
+  gap: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  position: relative;
+  z-index: 5;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  background: transparent;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-text-light);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.tab .tab-icon {
+  font-size: 18px;
+}
+
+.tab.active {
+  color: white;
+  background: var(--c-shenlun);
+  box-shadow: 0 2px 8px rgba(124,92,252,0.35);
+}
+
+.tab[data-tab="todo"].active { background: var(--c-todo); box-shadow: 0 2px 8px rgba(255,107,157,0.35); }
+.tab[data-tab="knowledge"].active { background: var(--c-knowledge); box-shadow: 0 2px 8px rgba(91,141,239,0.35); }
+.tab[data-tab="words"].active { background: var(--c-words); box-shadow: 0 2px 8px rgba(255,184,77,0.35); }
+.tab[data-tab="shenlun"].active { background: var(--c-shenlun); box-shadow: 0 2px 8px rgba(124,92,252,0.35); }
+
+/* 主内容区 */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px calc(80px + var(--safe-bottom));
+}
+
+.panel { display: none; }
+.panel.active { display: block; animation: fadeIn 0.25s ease; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 搜索框 */
+.search-bar {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 11px 14px 11px 38px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--c-card);
+  outline: none;
+  transition: border 0.2s;
+}
+
+.search-bar input:focus {
+  border-color: var(--c-shenlun);
+}
+
+.search-bar .search-icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 15px;
+  color: var(--c-text-light);
+  pointer-events: none;
+}
+
+/* 添加按钮（浮动） */
+.fab {
+  position: fixed;
+  bottom: calc(20px + var(--safe-bottom));
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #FF6B9D 0%, #7C5CFC 100%);
+  color: white;
+  font-size: 28px;
+  font-weight: 300;
+  box-shadow: 0 6px 20px rgba(124,92,252,0.45);
+  cursor: pointer;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.fab:active { transform: scale(0.92); }
+
+/* 卡片项 */
+.item {
+  background: var(--c-card);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  position: relative;
+  transition: all 0.2s;
+  border-left: 4px solid transparent;
+}
+
+.item:active { transform: scale(0.99); }
+
+.item.todo { border-left-color: var(--c-todo); }
+.item.knowledge { border-left-color: var(--c-knowledge); }
+.item.words { border-left-color: var(--c-words); }
+.item.shenlun { border-left-color: var(--c-shenlun); }
+
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.item-title {
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.item.done .item-title {
+  text-decoration: line-through;
+  color: var(--c-text-light);
+}
+
+.item-content {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.6;
+  margin-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--c-shenlun-bg);
+  color: var(--c-shenlun);
+  font-weight: 500;
+}
+
+.tag.t-todo { background: var(--c-todo-bg); color: var(--c-todo); }
+.tag.t-knowledge { background: var(--c-knowledge-bg); color: var(--c-knowledge); }
+.tag.t-words { background: var(--c-words-bg); color: var(--c-words); }
+.tag.t-shenlun { background: var(--c-shenlun-bg); color: var(--c-shenlun); }
+
+.tag.danger { background: #FFEAEA; color: #E74C3C; }
+
+.item-date {
+  font-size: 11px;
+  color: var(--c-text-light);
+  margin-left: auto;
+}
+
+.item-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--c-border);
+}
+
+.action-btn {
+  border: none;
+  background: transparent;
+  color: var(--c-text-light);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.action-btn:active {
+  background: var(--c-bg);
+}
+
+.action-btn.complete { color: #27AE60; }
+.action-btn.complete.done { color: #999; }
+.action-btn.flip { color: var(--c-knowledge); }
+.action-btn.delete { color: #E74C3C; }
+.action-btn.copy { color: var(--c-words); }
+
+/* 待办勾选框 */
+.todo-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--c-todo);
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.todo-check.done {
+  background: var(--c-todo);
+  color: white;
+}
+
+.todo-check.done::after {
+  content: '✓';
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* 空状态 */
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--c-text-light);
+}
+
+.empty .empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty .empty-text {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.empty .empty-hint {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* 翻转卡片模式 */
+.flashcard-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  backdrop-filter: blur(6px);
+}
+
+.flashcard-overlay.show {
+  display: flex;
+  animation: fadeIn 0.3s;
+}
+
+.flashcard {
+  width: 100%;
+  max-width: 400px;
+  height: 60vh;
+  max-height: 480px;
+  perspective: 1000px;
+  cursor: pointer;
+}
+
+.flashcard-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+.flashcard-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-front, .flashcard-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 20px;
+  padding: 30px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+.flashcard-front {
+  background: linear-gradient(135deg, #5B8DEF 0%, #7C5CFC 100%);
+  color: white;
+}
+
+.flashcard-back {
+  background: white;
+  color: var(--c-text);
+  transform: rotateY(180deg);
+}
+
+.flashcard-label {
+  font-size: 11px;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 14px;
+}
+
+.flashcard-text {
+  font-size: 17px;
+  line-height: 1.6;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.flashcard-hint {
+  position: absolute;
+  bottom: 16px;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.flashcard-nav {
+  position: absolute;
+  bottom: 40px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  z-index: 101;
+}
+
+.flashcard-nav button {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 10px 18px;
+  border-radius: 24px;
+  font-size: 13px;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.flashcard-nav button:active { background: rgba(255,255,255,0.3); }
+
+.flashcard-close {
+  position: absolute;
+  top: calc(var(--safe-top) + 16px);
+  right: 20px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 18px;
+  z-index: 101;
+  cursor: pointer;
+}
+
+.flashcard-counter {
+  position: absolute;
+  top: calc(var(--safe-top) + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: 13px;
+  opacity: 0.8;
+  z-index: 101;
+}
+
+/* 弹窗 */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 90;
+  align-items: flex-end;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.modal-overlay.show {
+  display: flex;
+  animation: fadeIn 0.2s;
+}
+
+.modal {
+  background: white;
+  width: 100%;
+  max-width: 600px;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 18px calc(20px + var(--safe-bottom));
+  animation: slideUp 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.modal-close {
+  background: var(--c-bg);
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 16px;
+  color: var(--c-text-light);
+  cursor: pointer;
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: border 0.2s;
+  background: white;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  border-color: var(--c-shenlun);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.6;
+}
+
+.tag-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-option {
+  padding: 6px 12px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 16px;
+  font-size: 12px;
+  cursor: pointer;
+  background: white;
+  transition: all 0.15s;
+  color: #666;
+}
+
+.tag-option.selected {
+  background: var(--c-shenlun-bg);
+  border-color: var(--c-shenlun);
+  color: var(--c-shenlun);
+  font-weight: 600;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 13px;
+  background: linear-gradient(135deg, #7C5CFC 0%, #9B7BFF 100%);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: transform 0.15s;
+}
+
+.btn-primary:active { transform: scale(0.98); }
+
+.btn-secondary {
+  width: 100%;
+  padding: 11px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+/* Toast 提示 */
+.toast {
+  position: fixed;
+  bottom: calc(90px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0,0,0,0.85);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 200;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* 设置面板 */
+.settings-panel {
+  background: white;
+  width: 100%;
+  max-width: 600px;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 18px calc(20px + var(--safe-bottom));
+  animation: slideUp 0.3s ease;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.settings-item:last-child { border-bottom: none; }
+
+.settings-item .label {
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-item .label .icon {
+  font-size: 18px;
+}
+
+.settings-item .desc {
+  font-size: 12px;
+  color: var(--c-text-light);
+  margin-top: 2px;
+}
+
+.settings-action {
+  background: var(--c-bg);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--c-shenlun);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.settings-action.danger { color: #E74C3C; }
+
+/* 过滤标签条 */
+.filter-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  padding: 6px 12px;
+  border-radius: 14px;
+  font-size: 12px;
+  background: var(--c-card);
+  border: 1.5px solid var(--c-border);
+  color: #666;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.filter-chip.active {
+  background: var(--c-shenlun);
+  border-color: var(--c-shenlun);
+  color: white;
+}
+
+/* 隐藏文件输入 */
+.file-input { display: none; }
+
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1><span class="logo">📖</span>我的笔记</h1>
+  <div class="subtitle">待办 · 知识 · 好句 · 申论</div>
+  <div class="topbar-actions">
+    <button class="icon-btn" onclick="openSettings()" title="设置">⚙️</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="todo" onclick="switchTab('todo')">
+    <span class="tab-icon">✅</span>待办
+  </button>
+  <button class="tab" data-tab="knowledge" onclick="switchTab('knowledge')">
+    <span class="tab-icon">💡</span>知识卡片
+  </button>
+  <button class="tab" data-tab="words" onclick="switchTab('words')">
+    <span class="tab-icon">✨</span>好词好句
+  </button>
+  <button class="tab" data-tab="shenlun" onclick="switchTab('shenlun')">
+    <span class="tab-icon">📝</span>申论素材
+  </button>
+</div>
+
+<div class="content">
+
+  <!-- 待办事项 -->
+  <div class="panel active" id="panel-todo">
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="搜索待办..." oninput="renderList('todo', this.value)">
+    </div>
+    <div class="filter-bar" id="filter-todo"></div>
+    <div id="list-todo"></div>
+  </div>
+
+  <!-- 知识卡片 -->
+  <div class="panel" id="panel-knowledge">
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="搜索知识点..." oninput="renderList('knowledge', this.value)">
+    </div>
+    <div class="filter-bar" id="filter-knowledge"></div>
+    <div id="list-knowledge"></div>
+  </div>
+
+  <!-- 好词好句 -->
+  <div class="panel" id="panel-words">
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="搜索好句..." oninput="renderList('words', this.value)">
+    </div>
+    <div class="filter-bar" id="filter-words"></div>
+    <div id="list-words"></div>
+  </div>
+
+  <!-- 申论素材 -->
+  <div class="panel" id="panel-shenlun">
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="搜索申论素材..." oninput="renderList('shenlun', this.value)">
+    </div>
+    <div class="filter-bar" id="filter-shenlun"></div>
+    <div id="list-shenlun"></div>
+  </div>
+
+</div>
+
+<button class="fab" onclick="openAddModal()" id="fab">+</button>
+
+<!-- 添加/编辑弹窗 -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">新增</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label>类型</label>
+      <div class="tag-selector" id="type-selector"></div>
+    </div>
+    <div class="form-group">
+      <label id="title-label">标题</label>
+      <input type="text" id="input-title" placeholder="请输入标题">
+    </div>
+    <div class="form-group" id="content-group">
+      <label id="content-label">内容</label>
+      <textarea id="input-content" placeholder="请输入内容..."></textarea>
+    </div>
+    <div class="form-group" id="category-group">
+      <label>分类标签</label>
+      <input type="text" id="input-category" placeholder="如：民法 / 励志 / 名言（可选）">
+    </div>
+    <div class="form-group" id="date-group">
+      <label>截止日期（可选）</label>
+      <input type="date" id="input-date">
+    </div>
+    <button class="btn-primary" onclick="saveItem()">保存</button>
+  </div>
+</div>
+
+<!-- 设置弹窗 -->
+<div class="modal-overlay" id="settings-overlay" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-panel">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ 设置</div>
+      <button class="modal-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="settings-item">
+      <div>
+        <div class="label"><span class="icon">📤</span>导出备份</div>
+        <div class="desc">导出 JSON 文件，可换手机迁移</div>
+      </div>
+      <button class="settings-action" onclick="exportData()">导出</button>
+    </div>
+    <div class="settings-item">
+      <div>
+        <div class="label"><span class="icon">📥</span>导入恢复</div>
+        <div class="desc">从备份文件恢复数据</div>
+      </div>
+      <button class="settings-action" onclick="document.getElementById('import-file').click()">导入</button>
+      <input type="file" id="import-file" class="file-input" accept=".json" onchange="importData(event)">
+    </div>
+    <div class="settings-item">
+      <div>
+        <div class="label"><span class="icon">📊</span>数据统计</div>
+        <div class="desc" id="stats-text">-</div>
+      </div>
+    </div>
+    <div class="settings-item">
+      <div>
+        <div class="label"><span class="icon">🗑️</span>清空所有数据</div>
+        <div class="desc">不可恢复，请谨慎</div>
+      </div>
+      <button class="settings-action danger" onclick="clearAllData()">清空</button>
+    </div>
+    <button class="btn-secondary" onclick="closeSettings()">关闭</button>
+  </div>
+</div>
+
+<!-- 翻转卡片模式 -->
+<div class="flashcard-overlay" id="flashcard-overlay">
+  <button class="flashcard-close" onclick="closeFlashcard()">✕</button>
+  <div class="flashcard-counter" id="flashcard-counter"></div>
+  <div class="flashcard" onclick="flipFlashcard()">
+    <div class="flashcard-inner" id="flashcard-inner">
+      <div class="flashcard-front">
+        <div class="flashcard-label">知识点</div>
+        <div class="flashcard-text" id="flashcard-front-text"></div>
+        <div class="flashcard-hint">点击查看答案 →</div>
+      </div>
+      <div class="flashcard-back">
+        <div class="flashcard-label">详细内容</div>
+        <div class="flashcard-text" id="flashcard-back-text"></div>
+        <div class="flashcard-hint">← 点击翻回</div>
+      </div>
+    </div>
+  </div>
+  <div class="flashcard-nav">
+    <button onclick="prevFlashcard()">‹ 上一个</button>
+    <button onclick="nextFlashcard()">下一个 ›</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== 数据层 ==========
+const STORAGE_KEY = 'my_notes_app_v1';
+let state = {
+  items: [],
+  currentTab: 'todo',
+  editingId: null,
+  selectedType: 'todo',
+  filters: { todo: '', knowledge: '', words: '', shenlun: '' },
+  activeCategory: { todo: '', knowledge: '', words: '', shenlun: '' },
+  flashcardIndex: 0
+};
+
+// 预设分类
+const PRESET_CATEGORIES = {
+  todo: ['今天', '本周', '本月', '未来'],
+  knowledge: ['法律', '政治', '经济', '历史', '常识', '其他'],
+  words: ['励志', '描写', '金句', '诗词', '其他'],
+  shenlun: ['开头', '结尾', '过渡', '对策', '案例', '名言']
+};
+
+const TYPE_CONFIG = {
+  todo: { name: '待办事项', icon: '✅', titleLabel: '待办内容', contentLabel: '备注（可选）', showDate: true, showCategory: true },
+  knowledge: { name: '知识卡片', icon: '💡', titleLabel: '知识点标题', contentLabel: '详细内容 / 答案', showDate: false, showCategory: true },
+  words: { name: '好词好句', icon: '✨', titleLabel: '好句', contentLabel: '出处 / 感悟（可选）', showDate: false, showCategory: true },
+  shenlun: { name: '申论素材', icon: '📝', titleLabel: '素材标题', contentLabel: '素材内容', showDate: false, showCategory: true }
+};
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      state.items = data.items || [];
+    }
+  } catch(e) {
+    console.error('加载数据失败', e);
+  }
+}
+
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ items: state.items }));
+  } catch(e) {
+    showToast('保存失败：' + e.message);
+  }
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function formatDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = (now - d) / 1000;
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return Math.floor(diff/60) + '分钟前';
+  if (diff < 86400) return Math.floor(diff/3600) + '小时前';
+  if (diff < 604800) return Math.floor(diff/86400) + '天前';
+  return `${d.getMonth()+1}月${d.getDate()}日`;
+}
+
+function isOverdue(item) {
+  if (!item.dueDate) return false;
+  const due = new Date(item.dueDate);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  return due < today && !item.done;
+}
+
+// ========== UI 渲染 ==========
+function switchTab(tab) {
+  state.currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+  // 清空搜索
+  document.querySelectorAll('.search-bar input').forEach(i => i.value = '');
+  state.filters[tab] = '';
+  renderFilterBar(tab);
+  renderList(tab);
+}
+
+function renderFilterBar(tab) {
+  const bar = document.getElementById('filter-' + tab);
+  const categories = new Set();
+  state.items.filter(i => i.type === tab).forEach(i => {
+    if (i.category) categories.add(i.category);
+  });
+  // 合并预设和已有
+  const allCats = [...new Set([...(PRESET_CATEGORIES[tab]||[]), ...categories])];
+  
+  let html = `<div class="filter-chip ${state.activeCategory[tab]===''?'active':''}" onclick="setCategory('${tab}','')">全部</div>`;
+  allCats.forEach(c => {
+    html += `<div class="filter-chip ${state.activeCategory[tab]===c?'active':''}" onclick="setCategory('${tab}','${c}')">${c}</div>`;
+  });
+  bar.innerHTML = html;
+}
+
+function setCategory(tab, cat) {
+  state.activeCategory[tab] = cat;
+  renderFilterBar(tab);
+  renderList(tab);
+}
+
+function renderList(tab, keyword) {
+  if (keyword !== undefined) state.filters[tab] = keyword;
+  const kw = (state.filters[tab] || '').toLowerCase().trim();
+  const cat = state.activeCategory[tab];
+  
+  let items = state.items.filter(i => i.type === tab);
+  if (cat) items = items.filter(i => i.category === cat);
+  if (kw) {
+    items = items.filter(i => 
+      (i.title && i.title.toLowerCase().includes(kw)) ||
+      (i.content && i.content.toLowerCase().includes(kw)) ||
+      (i.category && i.category.toLowerCase().includes(kw))
+    );
+  }
+  
+  // 待办按完成状态+日期排序
+  if (tab === 'todo') {
+    items.sort((a,b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
+      if (a.dueDate) return -1;
+      if (b.dueDate) return 1;
+      return b.createdAt - a.createdAt;
+    });
+  } else {
+    items.sort((a,b) => b.createdAt - a.createdAt);
+  }
+  
+  const list = document.getElementById('list-' + tab);
+  if (items.length === 0) {
+    const config = TYPE_CONFIG[tab];
+    list.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">${config.icon}</div>
+        <div class="empty-text">还没有${config.name}</div>
+        <div class="empty-hint">点击右下角 + 添加</div>
+      </div>`;
+    return;
+  }
+  
+  list.innerHTML = items.map(item => renderItem(item, tab)).join('');
+}
+
+function renderItem(item, tab) {
+  const config = TYPE_CONFIG[tab];
+  let metaHtml = '';
+  if (item.category) {
+    metaHtml += `<span class="tag t-${tab}">${escapeHtml(item.category)}</span>`;
+  }
+  if (tab === 'todo' && item.dueDate) {
+    const overdue = isOverdue(item);
+    metaHtml += `<span class="tag ${overdue?'danger':''}">${overdue?'已过期':''}📅 ${formatDate(item.dueDate)}</span>`;
+  }
+  metaHtml += `<span class="item-date">${formatDate(item.createdAt)}</span>`;
+  
+  // 操作按钮
+  let actionsHtml = '<div class="item-actions">';
+  if (tab === 'todo') {
+    actionsHtml += `<button class="action-btn complete ${item.done?'done':''}" onclick="toggleDone('${item.id}')">${item.done?'✓ 已完成':'○ 标记完成'}</button>`;
+  }
+  if (tab === 'knowledge') {
+    actionsHtml += `<button class="action-btn flip" onclick="startFlashcard('${item.id}')">🔄 翻转记忆</button>`;
+  }
+  if (item.content) {
+    actionsHtml += `<button class="action-btn copy" onclick="copyContent('${item.id}')">📋 复制</button>`;
+  }
+  actionsHtml += `<button class="action-btn" onclick="editItem('${item.id}')">✏️ 编辑</button>`;
+  actionsHtml += `<button class="action-btn delete" onclick="deleteItem('${item.id}')">🗑 删除</button>`;
+  actionsHtml += '</div>';
+  
+  // 待办特殊：左侧勾选
+  let checkHtml = '';
+  if (tab === 'todo') {
+    checkHtml = `<div class="todo-check ${item.done?'done':''}" onclick="toggleDone('${item.id}')"></div>`;
+    return `
+      <div class="item todo ${item.done?'done':''}">
+        <div class="item-header">
+          <div style="display:flex;gap:10px;align-items:flex-start;flex:1">
+            ${checkHtml}
+            <div style="flex:1">
+              <div class="item-title">${escapeHtml(item.title)}</div>
+              ${item.content?`<div class="item-content">${escapeHtml(item.content)}</div>`:''}
+            </div>
+          </div>
+        </div>
+        <div class="item-meta">${metaHtml}</div>
+        ${actionsHtml}
+      </div>`;
+  }
+  
+  return `
+    <div class="item ${tab}">
+      <div class="item-header">
+        <div class="item-title">${escapeHtml(item.title)}</div>
+      </div>
+      ${item.content?`<div class="item-content">${escapeHtml(item.content)}</div>`:''}
+      <div class="item-meta">${metaHtml}</div>
+      ${actionsHtml}
+    </div>`;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// ========== 增删改 ==========
+function openAddModal() {
+  state.editingId = null;
+  state.selectedType = state.currentTab;
+  document.getElementById('modal-title').textContent = '新增' + TYPE_CONFIG[state.currentTab].name;
+  renderTypeSelector();
+  document.getElementById('input-title').value = '';
+  document.getElementById('input-content').value = '';
+  document.getElementById('input-category').value = '';
+  document.getElementById('input-date').value = '';
+  updateFormFields();
+  document.getElementById('modal-overlay').classList.add('show');
+  setTimeout(() => document.getElementById('input-title').focus(), 300);
+}
+
+function editItem(id) {
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  state.editingId = id;
+  state.selectedType = item.type;
+  document.getElementById('modal-title').textContent = '编辑' + TYPE_CONFIG[item.type].name;
+  renderTypeSelector();
+  document.getElementById('input-title').value = item.title || '';
+  document.getElementById('input-content').value = item.content || '';
+  document.getElementById('input-category').value = item.category || '';
+  document.getElementById('input-date').value = item.dueDate || '';
+  updateFormFields();
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function renderTypeSelector() {
+  const sel = document.getElementById('type-selector');
+  sel.innerHTML = Object.entries(TYPE_CONFIG).map(([k,v]) => 
+    `<div class="tag-option ${state.selectedType===k?'selected':''}" onclick="selectType('${k}')">${v.icon} ${v.name}</div>`
+  ).join('');
+}
+
+function selectType(type) {
+  state.selectedType = type;
+  renderTypeSelector();
+  updateFormFields();
+}
+
+function updateFormFields() {
+  const config = TYPE_CONFIG[state.selectedType];
+  document.getElementById('title-label').textContent = config.titleLabel;
+  document.getElementById('content-label').textContent = config.contentLabel;
+  document.getElementById('date-group').style.display = config.showDate ? 'block' : 'none';
+  document.getElementById('category-group').style.display = config.showCategory ? 'block' : 'none';
+  
+  // 分类输入框 datalist 提示
+  const catInput = document.getElementById('input-category');
+  const presets = PRESET_CATEGORIES[state.selectedType] || [];
+  catInput.setAttribute('placeholder', '如：' + presets.join(' / ') + '（可选）');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+function saveItem() {
+  const title = document.getElementById('input-title').value.trim();
+  const content = document.getElementById('input-content').value.trim();
+  const category = document.getElementById('input-category').value.trim();
+  const dueDate = document.getElementById('input-date').value;
+  
+  if (!title) {
+    showToast('请输入标题');
+    return;
+  }
+  
+  if (state.editingId) {
+    const item = state.items.find(i => i.id === state.editingId);
+    if (item) {
+      item.type = state.selectedType;
+      item.title = title;
+      item.content = content;
+      item.category = category;
+      if (TYPE_CONFIG[state.selectedType].showDate) item.dueDate = dueDate;
+      else delete item.dueDate;
+      item.updatedAt = Date.now();
+    }
+    showToast('已更新');
+  } else {
+    const newItem = {
+      id: genId(),
+      type: state.selectedType,
+      title,
+      content,
+      category,
+      done: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    if (TYPE_CONFIG[state.selectedType].showDate && dueDate) newItem.dueDate = dueDate;
+    state.items.push(newItem);
+    showToast('已添加');
+  }
+  
+  saveData();
+  closeModal();
+  // 切换到对应 tab 并刷新
+  if (state.currentTab !== state.selectedType) {
+    switchTab(state.selectedType);
+  } else {
+    renderFilterBar(state.currentTab);
+    renderList(state.currentTab);
+  }
+}
+
+function deleteItem(id) {
+  if (!confirm('确定删除吗？')) return;
+  state.items = state.items.filter(i => i.id !== id);
+  saveData();
+  renderFilterBar(state.currentTab);
+  renderList(state.currentTab);
+  showToast('已删除');
+}
+
+function toggleDone(id) {
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  item.done = !item.done;
+  item.updatedAt = Date.now();
+  saveData();
+  renderList(state.currentTab);
+  if (item.done) showToast('完成！🎉');
+}
+
+function copyContent(id) {
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  const text = item.title + (item.content ? '\n\n' + item.content : '');
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('已复制到剪贴板');
+  }).catch(() => {
+    // 降级方案
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); showToast('已复制'); } catch(e) { showToast('复制失败'); }
+    document.body.removeChild(ta);
+  });
+}
+
+// ========== 翻转卡片 ==========
+function startFlashcard(id) {
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  // 获取当前分类下的所有知识卡片
+  const cat = state.activeCategory.knowledge;
+  let cards = state.items.filter(i => i.type === 'knowledge');
+  if (cat) cards = cards.filter(i => i.category === cat);
+  const idx = cards.findIndex(i => i.id === id);
+  if (idx < 0) return;
+  
+  state.flashcardCards = cards;
+  state.flashcardIndex = idx;
+  showFlashcard();
+  document.getElementById('flashcard-overlay').classList.add('show');
+}
+
+function showFlashcard() {
+  const card = state.flashcardCards[state.flashcardIndex];
+  if (!card) return;
+  document.getElementById('flashcard-front-text').textContent = card.title;
+  document.getElementById('flashcard-back-text').textContent = card.content || '（无详细内容）';
+  document.getElementById('flashcard-counter').textContent = `${state.flashcardIndex+1} / ${state.flashcardCards.length}`;
+  document.getElementById('flashcard-inner').classList.remove('flipped');
+}
+
+function flipFlashcard() {
+  document.getElementById('flashcard-inner').classList.toggle('flipped');
+}
+
+function nextFlashcard() {
+  state.flashcardIndex = (state.flashcardIndex + 1) % state.flashcardCards.length;
+  showFlashcard();
+}
+
+function prevFlashcard() {
+  state.flashcardIndex = (state.flashcardIndex - 1 + state.flashcardCards.length) % state.flashcardCards.length;
+  showFlashcard();
+}
+
+function closeFlashcard() {
+  document.getElementById('flashcard-overlay').classList.remove('show');
+}
+
+// ========== 设置 ==========
+function openSettings() {
+  updateStats();
+  document.getElementById('settings-overlay').classList.add('show');
+}
+
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('show');
+}
+
+function updateStats() {
+  const counts = { todo: 0, knowledge: 0, words: 0, shenlun: 0 };
+  let doneCount = 0;
+  state.items.forEach(i => {
+    if (counts[i.type] !== undefined) counts[i.type]++;
+    if (i.type === 'todo' && i.done) doneCount++;
+  });
+  document.getElementById('stats-text').textContent = 
+    `共 ${state.items.length} 条 | 待办 ${counts.todo}（完成 ${doneCount}）| 知识 ${counts.knowledge} | 好句 ${counts.words} | 申论 ${counts.shenlun}`;
+}
+
+function exportData() {
+  const data = JSON.stringify({ items: state.items, exportDate: new Date().toISOString() }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `笔记备份_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('备份文件已生成');
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!confirm('导入将合并到现有数据，是否继续？')) {
+    event.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.items || !Array.isArray(data.items)) throw new Error('格式错误');
+      // 合并：去重
+      const existingIds = new Set(state.items.map(i => i.id));
+      let added = 0;
+      data.items.forEach(i => {
+        if (!existingIds.has(i.id)) {
+          state.items.push(i);
+          added++;
+        }
+      });
+      saveData();
+      renderFilterBar(state.currentTab);
+      renderList(state.currentTab);
+      showToast(`导入成功，新增 ${added} 条`);
+      closeSettings();
+    } catch(err) {
+      showToast('导入失败：' + err.message);
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function clearAllData() {
+  if (!confirm('⚠️ 确定要清空所有数据吗？此操作不可恢复！')) return;
+  if (!confirm('再次确认：真的要删除全部笔记吗？')) return;
+  state.items = [];
+  saveData();
+  renderFilterBar(state.currentTab);
+  renderList(state.currentTab);
+  showToast('已清空');
+  closeSettings();
+}
+
+// ========== Toast ==========
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ========== 初始化 ==========
+function init() {
+  loadData();
+  // 如果是空数据，添加一些示例帮助用户上手
+  if (state.items.length === 0) {
+    const now = Date.now();
+    state.items = [
+      { id: genId(), type: 'todo', title: '本周读完《半月谈》一期', content: '重点关注民生板块', category: '本周', done: false, dueDate: '', createdAt: now, updatedAt: now },
+      { id: genId(), type: 'todo', title: '整理上周申论笔记', content: '', category: '今天', done: true, dueDate: '', createdAt: now-86400000, updatedAt: now },
+      { id: genId(), type: 'knowledge', title: '宣告失踪的条件', content: '自然人下落不明满二年的，利害关系人可以向人民法院申请宣告该自然人为失踪人。', category: '法律', createdAt: now-3600000, updatedAt: now },
+      { id: genId(), type: 'knowledge', title: 'GDP与GNP的区别', content: 'GDP是地域概念（境内），GNP是国民概念（本国公民）。GDP=GNP+外国公民在本国产值-本国公民在外国产值。', category: '经济', createdAt: now-7200000, updatedAt: now },
+      { id: genId(), type: 'words', title: '路虽远，行则将至；事虽难，做则必成。', content: '《荀子·修身》化用，常用于结尾励志', category: '金句', createdAt: now-1800000, updatedAt: now },
+      { id: genId(), type: 'words', title: '山河无恙，烟火寻常。', content: '描写盛世安宁', category: '描写', createdAt: now-5400000, updatedAt: now },
+      { id: genId(), type: 'shenlun', title: '民生无小事，枝叶总关情。', content: '适用于民生主题文章开头，强调以人民为中心的发展思想。可接：从"厕所革命"到"老旧小区改造"，凡涉及群众切身利益的事，再小也要用力办。', category: '开头', createdAt: now-10800000, updatedAt: now },
+      { id: genId(), type: 'shenlun', title: '绿色发展对策', content: '1.完善法规标准 2.强化监管执法 3.推动产业升级 4.倡导绿色生活方式 5.加强区域协同治理', category: '对策', createdAt: now-14400000, updatedAt: now }
+    ];
+    saveData();
+  }
+  renderFilterBar('todo');
+  renderList('todo');
+}
+
+// 点击遮罩关闭弹窗
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target.id === 'modal-overlay') closeModal();
+});
+
+// 返回键处理
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeModal();
+    closeSettings();
+    closeFlashcard();
+  }
+});
+
+init();
+
+// ========== Service Worker 注册（离线缓存 + 自动更新）==========
+if ('serviceWorker' in navigator) {
+  // 内联 Service Worker
+  const swCode = `
+const CACHE_NAME = 'my-notes-v3';
+const urlsToCache = ['/'];
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+    ))
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', e => {
+  // 对 HTML 请求使用 network-first（保证获取最新版）
+  if (e.request.mode === 'navigate' || e.request.destination === 'document') {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+  // 其他资源 cache-first
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request))
+  );
+});
+
+// 收到更新消息时通知所有客户端刷新
+self.addEventListener('message', e => {
+  if (e.data === 'skipWaiting') {
+    self.skipWaiting();
+    self.clients.matchAll().then(clients => {
+      clients.forEach(c => c.postMessage('update-available'));
+    });
+  }
+});
+`;
+
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+  
+  // 尝试用 Blob URL 注册（GitHub Pages 上直接用同源路径更稳）
+  if (window.location.hostname.includes('github')) {
+    // 在 GitHub Pages 环境下用内联方式注册
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // 如果 sw.js 不存在，降级：用 Blob URL
+      console.log('SW registered via inline fallback');
+    });
+  }
+  
+  // 检测更新
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
+}
+
+// 监听更新消息
+if (navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data === 'update-available') {
+      showToast('🔄 发现新版本，即将刷新...');
+      setTimeout(() => window.location.reload(), 1500);
+    }
+  });
+}
+</script>
+</body>
+</html>
