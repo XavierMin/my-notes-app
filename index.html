@@ -1673,22 +1673,6 @@ function showToast(msg) {
 // ========== 初始化 ==========
 function init() {
   loadData();
-  
-  // 如果是空数据，添加一些示例帮助用户上手
-  if (state.items.length === 0) {
-    const now = Date.now();
-    state.items = [
-      { id: genId(), type: 'todo', title: '本周读完《半月谈》一期', content: '重点关注民生板块', category: '本周', done: false, dueDate: '', createdAt: now, updatedAt: now },
-      { id: genId(), type: 'todo', title: '整理上周申论笔记', content: '', category: '今天', done: true, dueDate: '', createdAt: now-86400000, updatedAt: now },
-      { id: genId(), type: 'knowledge', title: '宣告失踪的条件', content: '自然人下落不明满二年的，利害关系人可以向人民法院申请宣告该自然人为失踪人。', category: '法律', createdAt: now-3600000, updatedAt: now },
-      { id: genId(), type: 'knowledge', title: 'GDP与GNP的区别', content: 'GDP是地域概念（境内），GNP是国民概念（本国公民）。GDP=GNP+外国公民在本国产值-本国公民在外国产值。', category: '经济', createdAt: now-7200000, updatedAt: now },
-      { id: genId(), type: 'words', title: '路虽远，行则将至；事虽难，做则必成。', content: '《荀子·修身》化用，常用于结尾励志', category: '金句', createdAt: now-1800000, updatedAt: now },
-      { id: genId(), type: 'words', title: '山河无恙，烟火寻常。', content: '描写盛世安宁', category: '描写', createdAt: now-5400000, updatedAt: now },
-      { id: genId(), type: 'shenlun', title: '民生无小事，枝叶总关情。', content: '适用于民生主题文章开头，强调以人民为中心的发展思想。可接：从"厕所革命"到"老旧小区改造"，凡涉及群众切身利益的事，再小也要用力办。', category: '开头', createdAt: now-10800000, updatedAt: now },
-      { id: genId(), type: 'shenlun', title: '绿色发展对策', content: '1.完善法规标准 2.强化监管执法 3.推动产业升级 4.倡导绿色生活方式 5.加强区域协同治理', category: '对策', createdAt: now-14400000, updatedAt: now }
-    ];
-    saveLocal();
-  }
   renderFilterBar('todo');
   renderList('todo');
   
